@@ -1,0 +1,13 @@
+# Deploy to Render.com: New > Blueprint > pick this repo.
+# Gives a permanent https URL with WebSocket support.
+services:
+  - type: web
+    name: tank-arena
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_VERSION
+        value: 20

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>TANK ARENA</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪖</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#080a10; --panel:#0e1420; --accent:#ffb24d; --pink:#ff5f8f; --cyan:#7ee0ff; --line:#243044; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html,body { height:100%; background:#080a10; color:#e6edf3; overflow:hidden;
+    font-family:'Press Start 2P', monospace; }
+  /* global CRT scanlines */
+  body::after { content:''; position:fixed; inset:0; z-index:200; pointer-events:none;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,0) 0 2px, rgba(0,0,0,.26) 2px 4px); }
+  #game { position:absolute; inset:0; display:block; background:#080a10; }
+
+  /* ---------- HUD (readable sans for in-game) ---------- */
+  #hud { position:absolute; inset:0; pointer-events:none; z-index:5; font-family:system-ui,Segoe UI,Roboto,sans-serif; }
+  #scoreboard { position:absolute; top:10px; left:50%; transform:translateX(-50%);
+    display:flex; gap:10px; background:rgba(8,11,18,.8); padding:7px 12px; border:2px solid var(--line); border-radius:4px; font-weight:700; }
+  #scoreboard .s { display:flex; align-items:center; gap:6px; font-size:14px; }
+  #scoreboard .dot { width:11px; height:11px; border-radius:2px; }
+  #botbar { position:absolute; left:0; right:0; bottom:0; display:flex; align-items:flex-end; justify-content:space-between; padding:14px; gap:14px; }
+  #health { width:240px; }
+  .hbar { height:18px; background:#26120f; border:2px solid #3a1f1a; overflow:hidden; }
+  #hpFill { height:100%; background:linear-gradient(90deg,#c2364f,#ff6a6a); transition:width .1s; }
+  #shieldRow { height:8px; margin-top:4px; background:#10202a; overflow:hidden; border:1px solid #1d3340; }
+  #shFill { height:100%; width:0; background:linear-gradient(90deg,#3a8fd0,#7ee0ff); }
+  #hpLabel { font-size:11px; color:#cdd6e4; margin-bottom:4px; font-weight:800; font-family:'Press Start 2P',monospace; }
+  #weapons { display:flex; gap:8px; }
+  .wpn { width:56px; height:56px; background:rgba(14,20,32,.9); border:3px solid var(--line);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:22px; pointer-events:auto; cursor:pointer; }
+  .wpn small { font-size:8px; color:#8b97a8; margin-top:3px; font-family:'Press Start 2P',monospace; }
+  .wpn.sel { border-color:var(--accent); background:rgba(255,178,77,.18); }
+  #killfeed { position:absolute; top:50px; right:12px; display:flex; flex-direction:column; gap:5px; align-items:flex-end; }
+  .feed { background:rgba(8,11,18,.8); border:2px solid var(--line); padding:5px 10px; font-size:13px; animation:fade 4s forwards; }
+  @keyframes fade { 0%,80%{opacity:1} 100%{opacity:0} }
+  #respawn { position:absolute; top:46%; left:50%; transform:translate(-50%,-50%); text-align:center;
+    font-family:'Press Start 2P',monospace; font-size:20px; color:#ff6a6a; text-shadow:3px 3px 0 #000; }
+
+  /* ---------- overlays / arcade cabinet ---------- */
+  .overlay { position:absolute; inset:0; z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; text-align:center; padding:20px;
+    background:rgba(6,8,14,.9); }
+  .hidden { display:none !important; }
+  h1 { font-size:clamp(20px,5vw,40px); line-height:1.4; color:var(--accent); text-shadow:3px 3px 0 var(--pink), 6px 6px 0 rgba(0,0,0,.5); }
+  .panel { background:#0b1018; border:4px solid var(--accent); box-shadow:0 0 0 4px #080a10, 6px 6px 0 rgba(0,0,0,.6);
+    padding:22px; width:420px; max-width:94vw; }
+  label { font-size:10px; color:var(--cyan); font-weight:700; display:block; text-align:left; line-height:1.6; }
+  input { width:100%; margin-top:8px; padding:13px; background:#080a10; border:3px solid #2a3445; color:#fff; font:inherit; font-size:13px; outline:none; }
+  input:focus { border-color:var(--accent); }
+  input::placeholder { color:#3a4150; }
+  button { font-family:'Press Start 2P',monospace; cursor:pointer; border:3px solid #080a10; padding:15px 16px; font-size:12px; font-weight:700;
+    background:var(--accent); color:#1a1206; margin-top:14px; width:100%; box-shadow:4px 4px 0 rgba(0,0,0,.6); transition:transform .06s; }
+  button:hover { filter:brightness(1.12); }
+  button:active { transform:translate(3px,3px); box-shadow:1px 1px 0 rgba(0,0,0,.6); }
+  button.sec { background:#26303f; color:var(--cyan); }
+  .choices { display:flex; flex-direction:column; gap:12px; }
+  .choices button { margin-top:0; }
+  .opts { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:8px; }
+  .opt { padding:11px 12px; background:#080a10; border:3px solid #2a3445; cursor:pointer; font-size:10px; font-weight:700; }
+  .opt.sel { border-color:var(--accent); background:rgba(255,178,77,.16); color:var(--accent); }
+  .swatches { display:flex; gap:8px; justify-content:center; margin-top:10px; }
+  .sw { width:26px; height:26px; border:3px solid #080a10; cursor:pointer; }
+  .sw.sel { border-color:#fff; }
+  ul#plist { list-style:none; display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:12px; }
+  ul#plist li { display:flex; align-items:center; gap:6px; background:#080a10; border:2px solid var(--line); padding:8px 10px; font-size:10px; }
+  .codebox { text-align:center; background:#080a10; border:3px dashed var(--accent); padding:16px; margin-top:10px; }
+  .codebox .code { font-size:30px; letter-spacing:6px; color:var(--accent); }
+  .back { color:#5d6b7e; cursor:pointer; font-size:9px; display:inline-block; margin-bottom:8px; }
+  .back:hover { color:#fff; }
+  .hint { font-size:9px; color:#5d6b7e; margin-top:14px; line-height:1.9; text-align:left; }
+  .hint b { color:var(--cyan); }
+  #winBoard { text-align:left; }
+
+  /* ---------- classic title screen ---------- */
+  #title { position:fixed; inset:0; z-index:50; cursor:pointer; overflow:hidden;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; background:#05060b; }
+  #title .grid-bg { position:absolute; inset:0; opacity:.5;
+    background-image:linear-gradient(rgba(255,178,77,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(255,178,77,.12) 1px, transparent 1px);
+    background-size:40px 40px; animation:scrollgrid 1.4s linear infinite; }
+  @keyframes scrollgrid { to { background-position:0 40px; } }
+  #title .scan { position:absolute; inset:0; pointer-events:none; background:repeating-linear-gradient(0deg, rgba(0,0,0,0) 0 2px, rgba(0,0,0,.35) 2px 4px); }
+  #title .content { position:relative; text-align:center; padding:20px; }
+  .tank-emoji { font-size:clamp(46px,13vw,92px); display:block; margin-bottom:18px; animation:roll 1.1s ease-in-out infinite alternate; }
+  @keyframes roll { from{transform:translateX(-10px) rotate(-3deg)} to{transform:translateX(10px) rotate(3deg)} }
+  .arcade-title { font-size:clamp(22px,7vw,54px); line-height:1.4; color:var(--accent); text-shadow:4px 4px 0 var(--pink), 8px 8px 0 rgba(0,0,0,.5); animation:flick 5s infinite steps(1); }
+  @keyframes flick { 0%,95%,100%{opacity:1} 96%{opacity:.4} 97%{opacity:1} 98%{opacity:.6} }
+  .arcade-sub { font-size:clamp(8px,2.4vw,13px); color:var(--cyan); margin-top:22px; letter-spacing:1px; }
+  .press-start { font-size:clamp(10px,3vw,18px); color:#fff; margin-top:52px; animation:blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity:0; } }
+  .credit { font-size:9px; color:#3a4458; position:absolute; bottom:18px; left:0; right:0; text-align:center; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- classic arcade title -->
+<div id="title">
+  <div class="grid-bg"></div>
+  <div class="content">
+    <span class="tank-emoji">🪖</span>
+    <div class="arcade-title">TANK<br>ARENA</div>
+    <div class="arcade-sub">AIM · SHOOT · DOMINATE</div>
+    <div class="press-start">▶ PRESS START</div>
+  </div>
+  <div class="scan"></div>
+  <div class="credit">© 2026 · 2-6 PLAYERS · INSERT FRIEND</div>
+</div>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div id="scoreboard"></div>
+  <div id="killfeed"></div>
+  <div id="respawn" class="hidden"></div>
+  <div id="botbar">
+    <div id="health">
+      <div id="hpLabel">100 HP</div>
+      <div class="hbar"><div id="hpFill" style="width:100%"></div></div>
+      <div id="shieldRow"><div id="shFill"></div></div>
+    </div>
+    <div id="weapons"></div>
+  </div>
+</div>
+
+<!-- Home -->
+<div id="home" class="overlay hidden">
+  <span class="tank-emoji" style="font-size:48px;margin:0">🪖</span>
+  <h1>TANK ARENA</h1>
+  <div class="panel">
+    <label>Your name</label>
+    <input id="name" maxlength="16" placeholder="e.g. SUDHANSH" />
+    <label style="margin-top:14px;">Tank colour</label>
+    <div class="swatches" id="swatches"></div>
+    <label style="margin-top:14px;">Weapon</label>
+    <div class="opts" id="weaponOpts">
+      <div class="opt" data-wpn="cannon">💥 CANNON</div>
+      <div class="opt" data-wpn="mg">🔫 MG</div>
+      <div class="opt" data-wpn="shotgun">🟠 SHOTGUN</div>
+      <div class="opt" data-wpn="rail">⚡ RAILGUN</div>
+    </div>
+    <div class="choices" style="margin-top:18px;">
+      <button id="joinChoice">🔑 JOIN GAME</button>
+      <button id="createChoice" class="sec">➕ CREATE ROOM</button>
+    </div>
+    <div class="hint">Move <b>WASD</b> · Aim <b>MOUSE</b> · Shoot <b>CLICK</b> · Weapons <b>1-4</b></div>
+  </div>
+</div>
+
+<!-- Create -->
+<div id="createPanel" class="overlay hidden">
+  <div class="panel">
+    <span class="back" id="backCreate">← BACK</span>
+    <label>Room code — share with friends</label>
+    <div class="codebox"><span class="code" id="genCode">------</span></div>
+    <button id="copyBtn" class="sec">📋 COPY CODE</button>
+    <button id="createJoinBtn">ENTER ROOM</button>
+  </div>
+</div>
+
+<!-- Join -->
+<div id="joinPanel" class="overlay hidden">
+  <div class="panel">
+    <span class="back" id="backJoin">← BACK</span>
+    <label>Enter 6-digit room code</label>
+    <input id="room" maxlength="6" inputmode="numeric" placeholder="123456"
+      style="text-align:center;font-size:24px;letter-spacing:8px;" />
+    <button id="joinBtn">JOIN ROOM</button>
+  </div>
+</div>
+
+<!-- Lobby -->
+<div id="lobby" class="overlay hidden">
+  <h1 style="font-size:26px">LOBBY</h1>
+  <div class="panel">
+    <label>Room <span id="lobbyCode" style="color:var(--accent);letter-spacing:3px;"></span></label>
+    <ul id="plist"></ul>
+    <label style="margin-top:16px;">Map</label>
+    <div class="opts" id="mapOpts">
+      <div class="opt" data-map="0">CROSSFIRE</div>
+      <div class="opt" data-map="1">MAZE</div>
+      <div class="opt" data-map="2">ARENA</div>
+    </div>
+    <button id="startBtn">START BATTLE</button>
+    <div class="hint">First to the kill limit wins. Same room code = same battle.</div>
+  </div>
+</div>
+
+<!-- Win -->
+<div id="win" class="overlay hidden">
+  <h1 id="winTitle">VICTORY</h1>
+  <div class="panel"><div id="winBoard"></div><button id="againBtn">PLAY AGAIN</button></div>
+</div>
+
+<div id="status" class="overlay hidden"><div class="panel" id="statusMsg" style="font-size:11px;line-height:1.8;color:#ff8a8a"></div></div>
+
+<script src="game.js"></script>
+</body>
+</html>
