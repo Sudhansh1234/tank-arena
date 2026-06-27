@@ -14,8 +14,15 @@ const server = http.createServer((req, res) => {
   if (!full.startsWith(path.join(__dirname, 'public'))) { res.writeHead(403); return res.end('no'); }
   fs.readFile(full, (err, data) => {
     if (err) { res.writeHead(404); return res.end('not found'); }
-    const ext = path.extname(full);
-    const type = ext === '.html' ? 'text/html' : ext === '.js' ? 'text/javascript' : ext === '.css' ? 'text/css' : 'text/plain';
+    const ext = path.extname(full).toLowerCase();
+    const TYPES = {
+      '.html': 'text/html; charset=utf-8',
+      '.js': 'application/javascript; charset=utf-8',
+      '.css': 'text/css; charset=utf-8',
+      '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif', '.svg': 'image/svg+xml', '.json': 'application/json',
+    };
+    const type = TYPES[ext] || 'text/plain; charset=utf-8';
     res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store' });
     res.end(data);
   });
